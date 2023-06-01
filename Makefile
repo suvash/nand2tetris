@@ -22,8 +22,8 @@ one: ## Run the test suite for chapter 01
 	./tools/HardwareSimulator.sh projects/01/Or8Way.tst
 	./tools/HardwareSimulator.sh projects/01/Mux4Way16.tst
 	./tools/HardwareSimulator.sh projects/01/Mux8Way16.tst
-	./tools/HardwareSimulator.sh projects/01/Dmux4Way.tst
-	./tools/HardwareSimulator.sh projects/01/Dmux8Way.tst
+	./tools/HardwareSimulator.sh projects/01/DMux4Way.tst
+	./tools/HardwareSimulator.sh projects/01/DMux8Way.tst
 
 two: ## Run the test suite for chapter 02
 	$(info Running tests for all units in Chapter 02)
