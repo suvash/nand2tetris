@@ -14,7 +14,7 @@ one: ## Run the test suite for chapter 01
 	./tools/HardwareSimulator.sh projects/01/Or.tst
 	./tools/HardwareSimulator.sh projects/01/Xor.tst
 	./tools/HardwareSimulator.sh projects/01/Mux.tst
-	./tools/HardwareSimulator.sh projects/01/Dmux.tst
+	./tools/HardwareSimulator.sh projects/01/DMux.tst
 	./tools/HardwareSimulator.sh projects/01/Not16.tst
 	./tools/HardwareSimulator.sh projects/01/And16.tst
 	./tools/HardwareSimulator.sh projects/01/Or16.tst
