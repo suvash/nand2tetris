@@ -35,3 +35,4 @@ two: ## Run the test suite for chapter 02
 
 three: ## Run the test suite for chapter 03
 	$(info -- Running tests for all units in Chapter 03)
+	./tools/HardwareSimulator.sh projects/03/a/Bit.tst
