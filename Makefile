@@ -5,7 +5,7 @@
 help: ## Display this help
 	@awk 'BEGIN {FS = ":.*##"; printf "\nUsage:\n  make \033[36m<target>\033[0m\n\nTargets:\n"} /^[a-zA-Z_-]+:.*?##/ { printf "  \033[36m%-10s\033[0m %s\n", $$1, $$2 }' $(MAKEFILE_LIST)
 
-test: one two ## Run the whole test suite
+test: one two three ## Run the whole test suite
 
 one: ## Run the test suite for chapter 01
 	$(info -- Running tests for all units in Chapter 01)
