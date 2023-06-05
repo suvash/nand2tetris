@@ -38,3 +38,4 @@ three: ## Run the test suite for chapter 03
 	./tools/HardwareSimulator.sh projects/03/a/Bit.tst
 	./tools/HardwareSimulator.sh projects/03/a/Register.tst
 	./tools/HardwareSimulator.sh projects/03/a/RAM8.tst
+	./tools/HardwareSimulator.sh projects/03/a/RAM64.tst
