@@ -40,5 +40,5 @@ three: ## Run the test suite for chapter 03
 	./tools/HardwareSimulator.sh projects/03/a/RAM8.tst
 	./tools/HardwareSimulator.sh projects/03/a/RAM64.tst
 	./tools/HardwareSimulator.sh projects/03/b/RAM512.tst
-	./tools/HardwareSimulator.sh projects/03/b/RAM4k.tst
+	./tools/HardwareSimulator.sh projects/03/b/RAM4K.tst
 	./tools/HardwareSimulator.sh projects/03/b/RAM16K.tst
