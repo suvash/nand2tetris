@@ -42,4 +42,4 @@ three: ## Run the test suite for chapter 03
 	./tools/HardwareSimulator.sh projects/03/b/RAM512.tst
 	./tools/HardwareSimulator.sh projects/03/b/RAM4K.tst
 	./tools/HardwareSimulator.sh projects/03/b/RAM16K.tst
-	./tools/HardwareSimulator.sh projects/03/b/PC.tst
+	./tools/HardwareSimulator.sh projects/03/a/PC.tst
