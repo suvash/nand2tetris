@@ -1,11 +1,11 @@
 .DEFAULT_GOAL:=help
 
-.PHONY: test one two three
+.PHONY: test one two three four
 
 help: ## Display this help
 	@awk 'BEGIN {FS = ":.*##"; printf "\nUsage:\n  make \033[36m<target>\033[0m\n\nTargets:\n"} /^[a-zA-Z_-]+:.*?##/ { printf "  \033[36m%-10s\033[0m %s\n", $$1, $$2 }' $(MAKEFILE_LIST)
 
-test: one two three ## Run the whole test suite
+test: one two three four ## Run the whole test suite
 
 one: ## Run the test suite for chapter 01
 	$(info -- Running tests for all units in Chapter 01)
@@ -43,3 +43,7 @@ three: ## Run the test suite for chapter 03
 	./tools/HardwareSimulator.sh projects/03/b/RAM4K.tst
 	./tools/HardwareSimulator.sh projects/03/b/RAM16K.tst
 	./tools/HardwareSimulator.sh projects/03/a/PC.tst
+
+four: ## Run the test suite for chapter 03
+	$(info -- Running tests for all units in Chapter 04)
+	./tools/CPUEmulator.sh projects/04/mult/Mult.tst
