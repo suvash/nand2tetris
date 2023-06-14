@@ -48,3 +48,5 @@ four: ## Run the test suite for chapter 03
 	$(info -- Running tests for all units in Chapter 04)
 	./tools/Assembler.sh projects/04/mult/Mult.asm
 	./tools/CPUEmulator.sh projects/04/mult/Mult.tst
+	./tools/Assembler.sh projects/04/fill/Fill.asm
+	# ./tools/CPUEmulator.sh projects/04/fill/Fill.tst
