@@ -18,7 +18,14 @@
 // write black to the whole screen memory
 
 @screen_color
-M=-1            // color to print screen
+M=-1            // set initial color value
+
+@SCREEN
+D=A             // Get the screen address, 16384 for Hack
+@8192           // total screen is 8K memory blocks of 16 words, for Hack
+D=D+A           // address of the byte past the last word in the screen
+@SCREEN_END
+M=D             // store the end screen address in SCREEN_END
 
 D=0             // intial printscreen argument
 @PRINTSCREEN
@@ -45,21 +52,18 @@ D=M
 M=D             // else update screen color to be input color
 
 @SCREEN
-D=A             // Get the screen address, 16384 for Hack
+D=A             // Get the screen address
 @x              // iterator index when we write to screen
-M=D             // start iterating at the first screen byte
-
+M=D             // start iterating at the first screen byte address
 
 (PRINTLOOP)
 
-@SCREEN
-D=A             // Get the screen address
-@8192           // total screen is 8K memory blocks of 16 words, for Hack
-D=D+A           // address of the byte past the last word in the screen
+@SCREEN_END
+D=M             // load the SCREEN_END address
 @x
-D=D-M           // iterator address - last screen word address
+D=D-M           // iterator value - end iterator value
 @LOOP
-D;JEQ           // Jump to loop if iterator has arrived at end of screen
+D;JEQ           // Jump to loop if iterator has arrived at end
 
 @screen_color
 D=M             // pick the color
