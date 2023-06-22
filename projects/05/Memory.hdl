@@ -27,5 +27,60 @@ CHIP Memory {
     OUT out[16];
 
     PARTS:
-    // Put your code here:
+    /* 
+      Address : has 15 bits (indexed 0 to 14)
+
+      For RAM16K
+          0 : 000000000000000
+      16383 : 011111111111111 
+
+      For Screen 8K
+      16384 : 100000000000000
+      24575 : 101111111111111
+
+      For Keyboard
+      24576 : 110000000000000
+
+      The interesting bits are
+      14th bit and 13th bit
+      -----------------------------------------
+      00 | RAM16K addressing by rest bits
+      01 | RAM16K addressing by rest bits
+      10 | Screen addressing by rest bits
+      11 | Keyboard adrdressing
+      -----------------------------------------
+
+      Since we have 2 bits that we can use to select
+      we can use a DMux4Way to split the load signal
+
+      Let's make a truth table for what we want
+      we want to dmux the load signal based on the 13..14 bit
+      | 14th | 13th | DMux4Way | signal
+      ----------------------------------------------
+      |    0 |    0 |     a    | load/read ram
+      |    0 |    1 |     b    | load/read ram
+      |    1 |    0 |     c    | load/read screen
+      |    1 |    1 |     d    | read keyboard (load never needed)
+       
+
+    */
+
+     /* Dmux the load signal */
+     DMux4Way(in=load, sel=address[13..14], a=loadRam0, b=loadRam1, c=loadScr, d=notneeded);
+ 
+     /* According to the table above, load ram in either cases */
+     Or(a=loadRam0, b=loadRam1, out=loadRam);
+ 
+     /* Only up to 13 bits needed to read/write the ram */
+     RAM16K(in=in, load=loadRam, address=address[0..13], out=ramOut);
+ 
+     /* Only up to 12 bits needed to read/write the screen */
+     Screen(in=in, load=loadScr, address=address[0..12], out=scrOut);
+ 
+     /* keyboard is read only, no need to adress and load */
+     Keyboard(out=kbdOut);
+ 
+     /* Now Mux them back using the same addressing flags */
+     Mux4Way16(a=ramOut, b=ramOut, c=scrOut, d=kbdOut, sel=address[13..14], out=out);
 }
+
