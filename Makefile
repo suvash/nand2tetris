@@ -51,7 +51,10 @@ four: ## Run the test suite for chapter 04
 	./tools/Assembler.sh projects/04/fill/Fill.asm
 	# ./tools/CPUEmulator.sh projects/04/fill/Fill.tst
 
-five: ## Run the test suite for chapter 03
+five: ## Run the test suite for chapter 05
 	$(info -- Running tests for all units in Chapter 05)
 	# ./tools/HardwareSimulator.sh projects/05/Memory.tst # can't be run - interactive test
 	./tools/HardwareSimulator.sh projects/05/CPU.tst
+	./tools/HardwareSimulator.sh projects/05/ComputerAdd.tst
+	./tools/HardwareSimulator.sh projects/05/ComputerMax.tst
+	./tools/HardwareSimulator.sh projects/05/ComputerRect.tst
