@@ -54,3 +54,4 @@ four: ## Run the test suite for chapter 04
 five: ## Run the test suite for chapter 03
 	$(info -- Running tests for all units in Chapter 05)
 	# ./tools/HardwareSimulator.sh projects/05/Memory.tst # can't be run - interactive test
+	./tools/HardwareSimulator.sh projects/05/CPU.tst

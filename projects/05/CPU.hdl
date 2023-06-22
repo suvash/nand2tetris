@@ -39,5 +39,158 @@ CHIP CPU {
         pc[15];          // address of next instruction
 
     PARTS:
-    // Put your code here:
+    /* 
+
+    Check Figure 4.5 of the book
+    Hack language specification
+
+    A-instruction : 0xxxxxxxxxxxxxxx
+    C-instruction : 1xxaccccccdddjjj
+
+    bits are 0 indexed
+    A and C instruction are differntiated by 15th bit
+
+    15th bit also called opcode bit
+
+    For A instruction (15th bit 0)
+      load the rest of bits binary value to A register
+
+    For C instruction (15th bit 1)
+      treat as capsule of control bits as 1xxaccccccdddjjj
+      a and cccccc bits code the comp part of instruction
+      ddd codes the dest part of instruction
+      jjj codes the jump part of instruction
+      xx  bits are ignored
+
+      xx     = instruction[13..14]
+      a      = instruction[12]
+      cccccc = instruction[6..11]
+      ddd    = instruction[3..5]
+      jjj    = instruction[0..2]
+
+    -------------------------------------
+      xx - unused bits
+
+    -------------------------------------
+      a - single comp bits
+
+      to select between A register or M input
+      before feeding to the ALUs y bits
+
+      0 - select A
+      1 - select M
+
+      x bits to ALU come from D register
+
+    -------------------------------------
+      cccccc - 6 bits directly fed into ALU
+
+    -------------------------------------
+      ddd - 3 bits to set which register loads/stores the ALU out
+
+      000 - null - not stored
+      001 - M    - RAM[A]
+      010 - D    - Register D
+      011 - DM   - RAM[A] and Register D
+      100 - A    - Register A
+      101 - AM   - Register A and RAM[A]
+      110 - AD   - Register A and Register D
+      111 - ADM  - Register A, Register D and RAM[A]
+
+      effectively (left to right)
+      1st bit - store to register A
+      2nd bit - store to register D
+      3rd bit - store to M (RAM)
+
+    -------------------------------------
+      jjj - 3 bits to decide what type of jump
+
+      000 - null - no jump
+      001 - JGT  - ALU >  0, jump
+      010 - JEQ  - ALU =  0, jump
+      011 - JGE  - ALU >= 0, jump
+      100 - JLT  - ALU <  0, jump
+      101 - JNE  - ALU != 0, jump
+      110 - JLE  - ALU <= 0, jump
+      111 - JMP - unconditional jump
+
+    -------------------------------------
+      For the ALU
+      If ALU out == 0, zr = 1, else zr = 0
+      If ALU out <  0, ng = 1, else ng = 0
+
+      Jump decision
+      J(jjj, zr, ng) = 1 jump if condition above is true
+                     = 0 else no jump
+
+    -------------------------------------
+      For the PC
+
+      If reset == 1, then set PC to 0
+      else
+        if J(jjj, zr, ng) == 1, then set PC to A (Jump to address)
+        else                         set PC to PC++ (next instruction)
+
+    -------------------------------------
+
+
+    */
+
+    /* A or C instruction based on opcode(15th) bit */
+
+    /* If A instruction, pass through instruction forward to register A */
+    /* If C instruction, pass through ALUOUt to register A */
+    Mux16(sel=instruction[15], a=instruction, b=ALUOut, out=instrMuxOut);
+
+    /* Loading A register */
+    /* If A instruction prepare load bit for A register */
+    Not(in=instruction[15], out=aInstruction);
+    /* A register can also be loaded on C instructions via 6th bit, dxx bits */
+    And(a=instruction[15], b=instruction[5], out=cInstructionLoadA);
+    Or(a=aInstruction, b=cInstructionLoadA, out=loadA);
+    /* 15 LSB bits of A register out is also used for RAM addressing */
+    ARegister(in=instrMuxOut, load=loadA, out=AOut, out[0..14]=addressM);
+
+    /* Loading D register */
+    /* If C instruction AND 4th control bit is set, then load register D with ALUOUT */
+    And(a=instruction[15], b=instruction[4], out=cInstructionLoadD);
+    DRegister(in=ALUOut, load=cInstructionLoadD, out=DOut);
+
+    /* Choose to use A or M, based on 'a' control bit */
+    Mux16(sel=instruction[12], a=AOut, b=inM, out=AMOut);
+
+    /* Use the values directly in ALU now */
+    ALU(x=DOut, y=AMOut, zx=instruction[11], nx=instruction[10], zy=instruction[9],  ny=instruction[8], f=instruction[7],   no=instruction[6],
+                         zr=zer, ng=neg,
+                         out=outM, out=ALUOut);
+
+    /* write to memory M if C instruction and M destination bit, 3rd bit */
+    /* addressM is already output from above */
+    And(a=instruction[15], b=instruction[3], out=writeM);
+
+
+    /* Combine control bits to see if we need to jump */
+
+    /* If JEQ(010) and ALU out is zero */
+    And(a=zer, b=instruction[1], out=JEQ);
+    /* If JLT(100) and ALU out is negative */
+    And(a=neg, b=instruction[2], out=JLT);
+    /* If ALU is positive */
+    Or(a=zer, b=neg, out=zerOrNeg);
+    Not(in=zerOrNeg, out=pos);
+    /* If JGT(001) and ALU out is positive */
+    And(a=pos, b=instruction[0], out=JGT);
+    /* If JLE  */
+    Or(a=JEQ, b=JLT, out=JLE);
+
+    /* Jump if less than, equal to, or greater than zero */
+    Or(a=JLE, b=JGT, out=JUMP);
+
+    /* If C instruction AND JUMP, set the load PC*/
+    And(a=instruction[15], b=JUMP, out=loadPC);
+    /* If not loading PC, then increment PC counter */
+    Not(in=loadPC, out=incPC);
+
+    /* PC chip */
+    PC(in=AOut, load=loadPC, inc=incPC, reset=reset, out[0..14]=pc);
 }
