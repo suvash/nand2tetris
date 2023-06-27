@@ -1,2 +1,4 @@
 Hardware Simulator.dat
 CPU Emulator.dat
+.direnv/
+.envrc
