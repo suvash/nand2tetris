@@ -1,46 +1,27 @@
-# CLI parser
-import argparse
-import pathlib
+# These various sections could live in different modules
+# I've chosen to have them all in a single file
 
+# Read file and sanitize section BEGIN
 
-cli = argparse.ArgumentParser()
-cli.add_argument("asm", help="input asm file",
-                 type=lambda p: pathlib.Path(p).absolute())
-cli.add_argument("hack", help="output hack file",
-                 type=lambda p: pathlib.Path(p).absolute())
-args = cli.parse_args()
-asm_file = args.asm
-hack_file = args.hack
+def read_asm_file(filepath):
+    with open(filepath, "r") as f:
+        content = f.readlines()
+        return content
 
-print(f"Assembling asm file : {asm_file}")
-print("========================================")
+def clean_whitespace_and_comments(lines):
+    clean = []
+    for line in lines:
+        no_comment = line.split('//')[0] # remove comments
+        stripped = no_comment.strip() # strip whitespace
+        if stripped != '': # only collect if not empty string
+            clean.append(stripped);
+    return clean
 
-# Read the file contents into memory
-with open(asm_file, "r") as f:
-    asm_contents = f.readlines()
+# Read file and sanitize section END
 
-print("Raw contents:\n")
-print(asm_contents)
-print("========================================")
+# Symbol table section BEGIN
 
-# Strip out all the whitespace and comments
-# only clean assembly after this
-asm_clean = []
-for line in asm_contents:
-    # remove comments - split by comment string and pick first section
-    no_comment = line.split('//')[0]
-    # strip all whitespace
-    stripped = no_comment.strip()
-    # collect if not empty string
-    if stripped != '':
-        asm_clean.append(stripped);
-
-print("After whitespace & comments removal:\n")
-print(asm_clean)
-print("========================================")
-
-# Build symbol table with predefined symbols
-SYMBOLS = {
+_PREBUILT_SYMBOLS = {
         "R0":         0,
         "R1":         1,
         "R2":         2,
@@ -66,26 +47,22 @@ SYMBOLS = {
         "KBD":    24576,
         }
 
-# First pass
-# Extend symbol table with labels
-asm_no_labels = []
-asm_no_label_line_no = 0
-for line in asm_clean:
-    if line.startswith('(') and line.endswith(')'):
-        new_symbol, line_no = line[1:-1], asm_no_label_line_no
-        SYMBOLS[new_symbol] = line_no
-    else:
-        asm_no_labels.append(line)
-        asm_no_label_line_no += 1
+def remove_label_and_extend_symbol_table(lines):
+    symbol_table = _PREBUILT_SYMBOLS
+    without_labels = []
+    label_line_no = 0
+    for line in lines:
+        if line.startswith('(') and line.endswith(')'):
+            new_symbol = line[1:-1]
+            symbol_table[new_symbol] = label_line_no
+        else:
+            without_labels.append(line)
+            label_line_no += 1
+    return without_labels, symbol_table
 
-print("After labels removal:\n")
-print(asm_no_labels)
-print()
-print("Updated symbol table :\n")
-print(SYMBOLS)
-print("========================================")
+# Symbol table section BEGIN
 
-# Build parsers for A and C instructions
+# Instruction parser section BEGIN
 
 from dataclasses import dataclass
 
@@ -110,21 +87,11 @@ def AInstructionParser(line):
 
     return res
 
-# print("Testing A instruction parser")
-# 
-# print('@what', AInstructionParser('@what'))
-# print('@123', AInstructionParser('@123'))
-# print('A=M-1', AInstructionParser('A=M-1'))
-# print('0;JMP', AInstructionParser('0;JMP'))
-
-# print("========================================")
-
 @dataclass
 class CInstruction:
     dest: str | None
     comp: str
     jump: str | None
-
 
 def CInstructionParser(line: str):
     if '=' in line:
@@ -139,63 +106,29 @@ def CInstructionParser(line: str):
 
     return res
 
-# print("Testing C instruction parser")
-# 
-# print('@what', CInstructionParser('@what'))
-# print('@123', CInstructionParser('@123'))
-# print('A=M-1', CInstructionParser('A=M-1'))
-# print('0;JMP', CInstructionParser('0;JMP'))
-
-# print("========================================")
-
-# Implement the logic for trying out various parsers
-
 Parsers = [AInstructionParser, CInstructionParser]
-
-class ParseError(Exception):
-    def __init__(self, msg, content):
-        super().__init__(f"{msg}: {content}")
 
 def parse_line(line):
     result = None
     parsers = iter(Parsers)
-
     while result == None:
         try:
             parser = next(parsers)
             result = parser(line)
         except StopIteration:
-            raise ParseError(f"Could not parse line", line)
-
+            raise Exception(f"Could not parse line: {line}")
     return result
-
-# Parse the assembly file into A and C instructions
 
 def parse_lines(lines):
     return [parse_line(line) for line in lines]
 
-print("Parsed assembly program:\n")
+# Instruction parser section END
 
-parsed_lines = parse_lines(asm_no_labels)
-for l in parsed_lines:
-    print(l)
+# Assembler section BEGIN
 
-# print("Testing line parser")
-# print(parse_line('@what'))
-# print(parse_line('@123'))
-# print(parse_line('A=M-1'))
-# print(parse_line('0;JMP'))
-# 
-print("========================================")
-
-# Generate the assembly based on A and C instructions
-
-# Set the address to start new variables from
-# will be incremented once a variable is assigned
 @dataclass
 class VariableAddress:
     val: int = 16
-
     def inc(self):
         self.val +=  1
 
@@ -253,16 +186,16 @@ COMP = {
         "D|M":  "1010101",
         }
 
-def assemble_instruction(instruction, var_addr):
+def assemble_instruction(instruction, var_addr, symbol_table):
     res = None
     match instruction:
         case AInstructionAddress(addr):
             res = f'{addr:016b}'
         case AInstructionVariable(var):
-            if var not in SYMBOLS:
-                SYMBOLS[var] = var_addr.val
+            if var not in symbol_table:
+                symbol_table[var] = var_addr.val
                 var_addr.inc()
-            res = f'{SYMBOLS[var]:016b}'
+            res = f'{symbol_table[var]:016b}'
         case CInstruction(dest, comp, jump):
             msb_3 = "111"
             comp_7 = COMP[comp]
@@ -275,19 +208,69 @@ def assemble_instruction(instruction, var_addr):
     return res
 
 
-def assemble_instructions(instructions):
+def assemble_instructions(instructions, symbol_table):
     var_addr = VariableAddress()
-    return [assemble_instruction(instr, var_addr) for instr in instructions]
+    return [assemble_instruction(instr, var_addr, symbol_table) for instr in instructions]
 
-assembled = assemble_instructions(parsed_lines)
-for a in assembled:
-    print(a)
+# Assembler section END
 
-print("========================================")
+# CLI parser section BEGIN
 
+import argparse
+import pathlib
+
+cli = argparse.ArgumentParser()
+cli.add_argument("asm", help="input asm file",
+                 type=lambda p: pathlib.Path(p).absolute())
+cli.add_argument("hack", help="output hack file",
+                 type=lambda p: pathlib.Path(p).absolute())
+cli.add_argument('-d', '--debug', action='store_true',
+                 help="print all the intermediate steps")
+args = cli.parse_args()
+DEBUG = args.debug
+asm_file = args.asm
+hack_file = args.hack
+
+print(f"Assembling asm file : {asm_file}")
+
+asm_contents = read_asm_file(asm_file)
+asm_clean = clean_whitespace_and_comments(asm_contents)
+asm_no_labels, symbols_with_labels = remove_label_and_extend_symbol_table(asm_clean)
+instructions = parse_lines(asm_no_labels)
+assembled = assemble_instructions(instructions, symbols_with_labels)
+
+if DEBUG:
+    print("========================================")
+    print("Raw contents:")
+    print("----------------------------------------")
+    print(asm_contents)
+    print("========================================")
+    print("After whitespace & comments removal:")
+    print("----------------------------------------")
+    print(asm_clean)
+    print("========================================")
+    print("After labels removal:")
+    print("----------------------------------------")
+    print(asm_no_labels)
+    print("Updated symbol table:")
+    print("----------------------------------------")
+    print(symbols_with_labels)
+    print("========================================")
+    print("Parsed assembly program:")
+    print("----------------------------------------")
+    for l in instructions:
+        print(l)
+    print("========================================")
+    print("Assembled program:")
+    print("----------------------------------------")
+    for a in assembled:
+        print(a)
+    print("========================================")
 
 with open(hack_file, "w") as f:
-    f.write('\n'.join(assembled))
+    binary = '\n'.join(assembled) + '\n'
+    f.write(binary)
 
 print(f"Wrote hack output to : {hack_file}")
 
+# CLI parser section END
