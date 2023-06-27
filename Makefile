@@ -1,11 +1,11 @@
 .DEFAULT_GOAL:=help
 
-.PHONY: test one two three four five
+.PHONY: test one two three four five six
 
 help: ## Display this help
 	@awk 'BEGIN {FS = ":.*##"; printf "\nUsage:\n  make \033[36m<target>\033[0m\n\nTargets:\n"} /^[a-zA-Z_-]+:.*?##/ { printf "  \033[36m%-10s\033[0m %s\n", $$1, $$2 }' $(MAKEFILE_LIST)
 
-test: one two three four five ## Run the whole test suite
+test: one two three four five six ## Run the whole test suite
 
 one: ## Run the test suite for chapter 01
 	$(info -- Running tests for all units in Chapter 01)
@@ -58,3 +58,37 @@ five: ## Run the test suite for chapter 05
 	./tools/HardwareSimulator.sh projects/05/ComputerAdd.tst
 	./tools/HardwareSimulator.sh projects/05/ComputerMax.tst
 	./tools/HardwareSimulator.sh projects/05/ComputerRect.tst
+
+six: ## Run the test suite for chapter 06
+	$(info -- Running tests for all units in Chapter 06)
+	mkdir -p projects/06/assembled
+	# Add
+	./tools/Assembler.sh projects/06/add/Add.asm
+	python projects/06/hack/assembler.py projects/06/add/Add.asm projects/06/assembled/Add.hack
+	cmp projects/06/add/Add.hack projects/06/assembled/Add.hack 
+	rm projects/06/add/Add.hack projects/06/assembled/Add.hack 
+	# Max
+	./tools/Assembler.sh projects/06/max/Max.asm
+	python projects/06/hack/assembler.py projects/06/max/Max.asm projects/06/assembled/Max.hack
+	cmp projects/06/max/Max.hack projects/06/assembled/Max.hack 
+	rm projects/06/max/Max.hack projects/06/assembled/Max.hack 
+	# MaxL
+	./tools/Assembler.sh projects/06/max/MaxL.asm
+	python projects/06/hack/assembler.py projects/06/max/MaxL.asm projects/06/assembled/MaxL.hack
+	cmp projects/06/max/MaxL.hack projects/06/assembled/MaxL.hack 
+	rm projects/06/max/MaxL.hack projects/06/assembled/MaxL.hack 
+	# Rect
+	./tools/Assembler.sh projects/06/rect/Rect.asm
+	python projects/06/hack/assembler.py projects/06/rect/Rect.asm projects/06/assembled/Rect.hack
+	cmp projects/06/rect/Rect.hack projects/06/assembled/Rect.hack 
+	rm projects/06/rect/Rect.hack projects/06/assembled/Rect.hack 
+	# Pong
+	./tools/Assembler.sh projects/06/pong/Pong.asm
+	python projects/06/hack/assembler.py projects/06/pong/Pong.asm projects/06/assembled/Pong.hack
+	cmp projects/06/pong/Pong.hack projects/06/assembled/Pong.hack 
+	rm projects/06/pong/Pong.hack projects/06/assembled/Pong.hack 
+	# PongL
+	./tools/Assembler.sh projects/06/pong/PongL.asm
+	python projects/06/hack/assembler.py projects/06/pong/PongL.asm projects/06/assembled/PongL.hack
+	cmp projects/06/pong/PongL.hack projects/06/assembled/PongL.hack 
+	rm projects/06/pong/PongL.hack projects/06/assembled/PongL.hack 
