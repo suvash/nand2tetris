@@ -1,11 +1,11 @@
 .DEFAULT_GOAL:=help
 
-.PHONY: test one two three four five six
+.PHONY: test one two three four five six seven
 
 help: ## Display this help
 	@awk 'BEGIN {FS = ":.*##"; printf "\nUsage:\n  make \033[36m<target>\033[0m\n\nTargets:\n"} /^[a-zA-Z_-]+:.*?##/ { printf "  \033[36m%-10s\033[0m %s\n", $$1, $$2 }' $(MAKEFILE_LIST)
 
-test: one two three four five six ## Run the whole test suite
+test: one two three four five six seven ## Run the whole test suite
 
 one: ## Run the test suite for chapter 01
 	$(info -- Running tests for all units in Chapter 01)
@@ -92,3 +92,10 @@ six: ## Run the test suite for chapter 06
 	python projects/06/hack/assembler.py projects/06/pong/PongL.asm projects/06/assembled/PongL.hack
 	cmp projects/06/pong/PongL.hack projects/06/assembled/PongL.hack 
 	rm projects/06/pong/PongL.hack projects/06/assembled/PongL.hack 
+
+seven: ## Run the test suite for chapter 07
+	$(info -- Running tests for all units in Chapter 07)
+	# SimpleAdd
+	python projects/07/vmack/translator.py projects/07/StackArithmetic/SimpleAdd/SimpleAdd.vm projects/07/StackArithmetic/SimpleAdd/SimpleAdd.asm
+	./tools/CPUEmulator.sh projects/07/StackArithmetic/SimpleAdd/SimpleAdd.tst
+
