@@ -107,4 +107,7 @@ seven: ## Run the test suite for chapter 07
 	# PointerTest
 	python projects/07/vmack/translator.py projects/07/MemoryAccess/PointerTest/PointerTest.vm projects/07/MemoryAccess/PointerTest/PointerTest.asm
 	./tools/CPUEmulator.sh  projects/07/MemoryAccess/PointerTest/PointerTest.tst
+	# StaticTest
+	python projects/07/vmack/translator.py projects/07/MemoryAccess/StaticTest/StaticTest.vm projects/07/MemoryAccess/StaticTest/StaticTest.asm
+	./tools/CPUEmulator.sh  projects/07/MemoryAccess/StaticTest/StaticTest.tst
 

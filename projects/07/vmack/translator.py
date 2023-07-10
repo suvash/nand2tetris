@@ -138,11 +138,38 @@ def translate_pop_segment_offset_command(seg, val):
     res = template.format(val=val, seg=seg.name, instr=instr, instrarith=instrarith)
     return res
 
-def translate_pop_command(seg, val):
+
+def translate_pop_static_command(static_label, val):
+    template = """\
+    // pop static {val}
+    // static var
+    @{static_var}
+    D=A
+    // address in R13
+    @R13
+    M=D
+    // SP--
+    @SP
+    M=M-1
+    // load value in D
+    A=M
+    D=M
+    // value D in address pointed by temp
+    @R13
+    A=M
+    M=D
+    """
+    static_var = f"{static_label}.{val}"
+    res = template.format(val=val, static_var=static_var)
+    return res
+
+def translate_pop_command(static_label, seg, val):
     res = None
     match seg:
         case Segment.local | Segment.argument | Segment.this | Segment.that | Segment.temp | Segment.pointer:
             res = translate_pop_segment_offset_command(seg, val)
+        case Segment.static:
+            res = translate_pop_static_command(static_label, val)
         case _:
             raise Exception(f"Unexpected segment : {seg}")
     return res
@@ -200,11 +227,32 @@ def translate_push_constant_command(val):
     return res
 
 
-def translate_push_command(seg, val):
+def translate_push_static_command(static_label, val):
+    template = """\
+    // push static {val}
+    // static var
+    @{static_var}
+    D=M
+    // RAM[SP] = D
+    @SP
+    A=M
+    M=D
+    // SP++
+    @SP
+    M=M+1
+    """
+    static_var = f"{static_label}.{val}"
+    res = template.format(val=val, static_var=static_var)
+    return res
+
+
+def translate_push_command(static_label, seg, val):
     res = None
     match seg:
         case Segment.constant:
             res = translate_push_constant_command(val)
+        case Segment.static:
+            res = translate_push_static_command(static_label, val)
         case Segment.local | Segment.argument | Segment.this | Segment.that | Segment.temp | Segment.pointer:
             res = translate_push_segment_offset_command(seg, val)
         case _:
@@ -212,13 +260,13 @@ def translate_push_command(seg, val):
     return res
 
 
-def translate_push_pop_command(cmd, seg, val):
+def translate_push_pop_command(static_label, cmd, seg, val):
     res = None
     match cmd:
         case PushPop.pop:
-            res = translate_pop_command(seg, val)
+            res = translate_pop_command(static_label, seg, val)
         case PushPop.push:
-            res = translate_push_command(seg, val)
+            res = translate_push_command(static_label, seg, val)
         case _:
             raise Exception(f"Unexpected push pop command : {cmd}, {seg}, {val}")
     return res
@@ -388,11 +436,11 @@ def translate_op_command(op, label_gen):
     return res
 
 
-def translate_command(command, label_gen):
+def translate_command(static_label, command, label_gen):
     res = None
     match command:
         case PushPopCommand(cmd, seg, val):
-            res = translate_push_pop_command(cmd, seg, val)
+            res = translate_push_pop_command(static_label, cmd, seg, val)
         case OpCommand(op):
             res = translate_op_command(op, label_gen)
         case _:
@@ -412,9 +460,18 @@ class LabelGenerator:
         return tag, dest
 
 
-def translate_commands(commands):
+@dataclass
+class StaticSymbolGenerator:
+    prefix: str
+
+    def next(self, val):
+        return f"{self.prefix}.{val}"
+
+
+def translate_commands(vm_fname, commands):
     label_gen = LabelGenerator()
-    return [translate_command(cmd, label_gen) for cmd in commands]
+    static_label = vm_fname
+    return [translate_command(static_label, cmd, label_gen) for cmd in commands]
 
 
 # Translation section END
@@ -441,7 +498,8 @@ print(f"Translating vm file : {vm_file}")
 vm_contents = read_vm_file(vm_file)
 vm_clean = clean_whitespace_and_comments(vm_contents)
 commands = parse_lines(vm_clean)
-translated = translate_commands(commands)
+vm_fname = vm_file.stem
+translated = translate_commands(vm_fname, commands)
 
 
 if DEBUG:
