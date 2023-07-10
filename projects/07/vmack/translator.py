@@ -490,14 +490,6 @@ class LabelGenerator:
         return tag, dest
 
 
-@dataclass
-class StaticSymbolGenerator:
-    prefix: str
-
-    def next(self, val):
-        return f"{self.prefix}.{val}"
-
-
 def translate_commands(vm_fname, commands):
     label_gen = LabelGenerator()
     static_label = vm_fname
