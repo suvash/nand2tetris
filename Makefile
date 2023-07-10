@@ -98,4 +98,7 @@ seven: ## Run the test suite for chapter 07
 	# SimpleAdd
 	python projects/07/vmack/translator.py projects/07/StackArithmetic/SimpleAdd/SimpleAdd.vm projects/07/StackArithmetic/SimpleAdd/SimpleAdd.asm
 	./tools/CPUEmulator.sh projects/07/StackArithmetic/SimpleAdd/SimpleAdd.tst
+	# StackTest
+	python projects/07/vmack/translator.py projects/07/StackArithmetic/StackTest/StackTest.vm projects/07/StackArithmetic/StackTest/StackTest.asm
+	./tools/CPUEmulator.sh projects/07/StackArithmetic/StackTest/StackTest.tst
 

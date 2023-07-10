@@ -22,14 +22,19 @@ M=D
 @SP
 M=M+1
 
-// add
 // SP--
 @SP
 M=M-1
-// D = RAM[SP]
-A=M // can be fused with M=M-1 as AM=M-1
+A=M
+// y val in D
 D=M
-// RAM[SP--] = D + RAM[SP--]
-A=A-1
-M=D+M
+// SP--
+@SP
+M=M-1
+A=M
+// x val in M : y val in D : run operation
+M=M+D
+// SP++
+@SP
+M=M+1
 

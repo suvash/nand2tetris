@@ -51,19 +51,22 @@ def PushCommandParser(line):
         res = None
     return res
 
-@dataclass
-class AddCommand:
-    pass
+Ops = ["oadd", "osub", "oneg", "oeq", "ogt", "olt", "oand", "oor", "onot"]
+Op = Enum("Op", Ops)
 
-def AddCommandParser(line):
-    add_cmd = 'add'
-    if line == add_cmd:
-        res = AddCommand()
-    else:
+@dataclass
+class OpCommand:
+    op: Op
+
+def OpCommandParser(line):
+    try:
+        op = getattr(Op, f"o{line}")
+        res = OpCommand(op)
+    except AttributeError:
         res = None
     return res
 
-Parsers = [PushCommandParser, AddCommandParser]
+Parsers = [PushCommandParser, OpCommandParser]
 
 def parse_line(line):
     result = None
@@ -106,38 +109,193 @@ def translate_push_command(segment, val):
             raise Exception(f"Unexpected segment : {segment}")
     return res
 
-def translate_add_command():
+def translate_neg_command():
     res = """\
-    // add
     // SP--
     @SP
     M=M-1
-    // D = RAM[SP]
-    A=M // can be fused with M=M-1 as AM=M-1
-    D=M
-    // RAM[SP--] = D + RAM[SP--]
-    A=A-1
-    M=D+M
+    A=M
+    // y val in M, negate it
+    M=-M
+    // SP++
+    @SP
+    M=M+1
     """
+
     return res
 
+def translate_not_command():
+    res = """\
+    // SP--
+    @SP
+    M=M-1
+    A=M
+    // y val in M, not it
+    M=!M
+    // SP++
+    @SP
+    M=M+1
+    """
 
+    return res
 
-def translate_command(command):
+def translate_and_or_command(op):
+    match op:
+        case Op.oand:
+            oper = "M=D&M"
+        case Op.oor:
+            oper = "M=D|M"
+        case _:
+            raise Exception(f"Unexpected and_or command : {op}")
+
+    template = """\
+    // SP--
+    @SP
+    M=M-1
+    A=M
+    // y val in D
+    D=M
+    // SP--
+    @SP
+    M=M-1
+    A=M
+    // x val in M : y val in D : run operation
+    {oper}
+    // SP++
+    @SP
+    M=M+1
+    """
+    res = template.format(oper=oper)
+
+    return res
+
+def translate_add_sub_command(op):
+    match op:
+        case Op.oadd:
+            oper = "M=M+D"
+        case Op.osub:
+            oper = "M=M-D"
+        case _:
+            raise Exception(f"Unexpected add_sub command : {op}")
+
+    template = """\
+    // SP--
+    @SP
+    M=M-1
+    A=M
+    // y val in D
+    D=M
+    // SP--
+    @SP
+    M=M-1
+    A=M
+    // x val in M : y val in D : run operation
+    {oper}
+    // SP++
+    @SP
+    M=M+1
+    """
+    res = template.format(oper=oper)
+
+    return res
+
+def translate_eq_lt_gt_command(op, label_gen):
+    match op:
+        case Op.oeq:
+            cond = "D;JEQ"
+        case Op.olt:
+            cond = "D;JLT";
+        case Op.ogt:
+            cond = "D;JGT";
+        case _:
+            raise Exception(f"Unexpected logical command : {op}")
+
+    template = """\
+    // SP--
+    @SP
+    M=M-1
+    A=M
+    // y val in D
+    D=M
+    // SP--
+    @SP
+    M=M-1
+    A=M
+    // x val in M : y val in D : run x-y to D
+    D=M-D
+    // Label for jump if cond met in D
+    {cond_tag}
+    {cond} // jump condition
+    // else continue, output is false because cond not met
+    // False represented by 0
+    D=0
+    // Label for jump out of cond since output is set in D
+    {post_cond_tag}
+    0;JMP
+    // arrive if cond met, output is true, set in D
+    {cond_dest}
+    // True represented by -1
+    D=-1
+    {post_cond_dest}
+    // Update stack, RAM[SP] = D
+    @SP
+    A=M
+    M=D
+    // SP++
+    @SP
+    M=M+1
+    """
+    cond_tag, cond_dest = label_gen.next()
+    post_cond_tag, post_cond_dest = label_gen.next()
+
+    res = template.format(
+            cond_tag=cond_tag, cond_dest=cond_dest, cond=cond,
+            post_cond_tag=post_cond_tag, post_cond_dest=post_cond_dest)
+
+    return res
+
+def translate_op_command(op, label_gen):
+    res = None
+    match op:
+        case Op.oneg:
+            res = translate_neg_command()
+        case Op.onot:
+            res = translate_not_command()
+        case Op.oand | Op.oor:
+            res = translate_and_or_command(op)
+        case Op.oadd | Op.osub:
+            res = translate_add_sub_command(op)
+        case Op.oeq | Op.olt | Op.ogt:
+            res = translate_eq_lt_gt_command(op, label_gen)
+        case _:
+            raise Exception(f"Unexpected op : {op}")
+    return res
+
+def translate_command(command, label_gen):
     res = None
     match command:
         case PushCommand(segment, val):
             res = translate_push_command(segment, val)
-        case AddCommand():
-            res = translate_add_command()
+        case OpCommand(op):
+            res = translate_op_command(op, label_gen)
         case _:
             raise Exception(f"Unexpected command : {command}")
     return dedent(res)
 
+@dataclass
+class LabelGenerator:
+    prefix: str = "LABEL"
+    val: int = 0
 
+    def next(self):
+        self.val += 1
+        tag = f"@{self.prefix}_{self.val}"
+        dest = f"({self.prefix}_{self.val})"
+        return tag, dest
 
 def translate_commands(commands):
-    return [translate_command(cmd) for cmd in commands]
+    label_gen = LabelGenerator()
+    return [translate_command(cmd, label_gen) for cmd in commands]
 
 # Translation section END
 
