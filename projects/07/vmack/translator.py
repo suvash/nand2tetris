@@ -1,5 +1,6 @@
 # Read file and sanitize section BEGIN
 
+
 def read_vm_file(filepath):
     with open(filepath, "r") as f:
         content = f.readlines()
@@ -9,10 +10,10 @@ def read_vm_file(filepath):
 def clean_whitespace_and_comments(lines):
     clean = []
     for line in lines:
-        no_comment = line.split('//')[0] # remove comments
-        stripped = no_comment.strip() # strip whitespace
-        if stripped != '': # only collect if not empty string
-            clean.append(stripped);
+        no_comment = line.split("//")[0]  # remove comments
+        stripped = no_comment.strip()  # strip whitespace
+        if stripped != "":  # only collect if not empty string
+            clean.append(stripped)
     return clean
 
 
@@ -24,7 +25,16 @@ from enum import Enum
 from dataclasses import dataclass
 
 
-Segments = ["local", "argument", "this", "that", "constant", "static", "temp", "pointer"]
+Segments = [
+    "local",
+    "argument",
+    "this",
+    "that",
+    "constant",
+    "static",
+    "temp",
+    "pointer",
+]
 Segment = Enum("Segment", Segments)
 
 
@@ -46,7 +56,7 @@ class PushPopCommand:
 
 def PushPopCommandParser(line):
     if is_push_or_pop_cmd(line):
-        _cmd, _seg, _val = line.split(' ')
+        _cmd, _seg, _val = line.split(" ")
         try:
             cmd = getattr(PushPop, _cmd)
             seg = getattr(Segment, _seg)
@@ -103,13 +113,16 @@ from textwrap import dedent
 
 
 PopSegToInst = {
+    # fmt: off
     "local":    ("@LCL",  "D=D+M"),
     "argument": ("@ARG",  "D=D+M"),
     "this":     ("@THIS", "D=D+M"),
     "that":     ("@THAT", "D=D+M"),
     "temp":     ("@5",    "D=D+A"),
     "pointer":  ("@3",    "D=D+A"),
- }
+    # fmt: on
+}
+
 
 def translate_pop_segment_offset_command(seg, val):
     template = """\
@@ -163,6 +176,7 @@ def translate_pop_static_command(static_label, val):
     res = template.format(val=val, static_var=static_var)
     return res
 
+
 def translate_pop_command(static_label, seg, val):
     res = None
     match seg:
@@ -176,13 +190,15 @@ def translate_pop_command(static_label, seg, val):
 
 
 PushSegToInst = {
+    # fmt: off
     "local":    ("@LCL",  "A=D+M"),
     "argument": ("@ARG",  "A=D+M"),
     "this":     ("@THIS", "A=D+M"),
     "that":     ("@THAT", "A=D+M"),
     "temp":     ("@5",    "A=D+A"),
     "pointer":  ("@3",    "A=D+A"),
- }
+    # fmt: on
+}
 
 
 def translate_push_segment_offset_command(seg, val):
@@ -369,9 +385,9 @@ def translate_eq_lt_gt_command(op, label_gen):
         case Op.oeq:
             cond = "D;JEQ"
         case Op.olt:
-            cond = "D;JLT";
+            cond = "D;JLT"
         case Op.ogt:
-            cond = "D;JGT";
+            cond = "D;JGT"
         case _:
             raise Exception(f"Unexpected logical command : {op}")
     template = """\
@@ -413,8 +429,12 @@ def translate_eq_lt_gt_command(op, label_gen):
     cond_tag, cond_dest = label_gen.next()
     post_cond_tag, post_cond_dest = label_gen.next()
     res = template.format(
-            cond_tag=cond_tag, cond_dest=cond_dest, cond=cond,
-            post_cond_tag=post_cond_tag, post_cond_dest=post_cond_dest)
+        cond_tag=cond_tag,
+        cond_dest=cond_dest,
+        cond=cond,
+        post_cond_tag=post_cond_tag,
+        post_cond_dest=post_cond_dest,
+    )
     return res
 
 
@@ -482,12 +502,13 @@ import argparse
 import pathlib
 
 cli = argparse.ArgumentParser()
-cli.add_argument("vm", help="input vm file",
-                 type=lambda p: pathlib.Path(p).absolute())
-cli.add_argument("asm", help="output asm file",
-                 type=lambda p: pathlib.Path(p).absolute())
-cli.add_argument('-d', '--debug', action='store_true',
-                 help="print all the intermediate steps")
+cli.add_argument("vm", help="input vm file", type=lambda p: pathlib.Path(p).absolute())
+cli.add_argument(
+    "asm", help="output asm file", type=lambda p: pathlib.Path(p).absolute()
+)
+cli.add_argument(
+    "-d", "--debug", action="store_true", help="print all the intermediate steps"
+)
 args = cli.parse_args()
 DEBUG = args.debug
 vm_file = args.vm
@@ -525,12 +546,10 @@ if DEBUG:
 
 
 with open(asm_file, "w") as f:
-    assembly = '\n'.join(translated) + '\n'
+    assembly = "\n".join(translated) + "\n"
     f.write(assembly)
 
 
 print(f"Wrote asm output to : {asm_file}")
 
 # CLI parser section END
-
-
