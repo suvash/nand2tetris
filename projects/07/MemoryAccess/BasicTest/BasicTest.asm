@@ -416,3 +416,8 @@ M=M+D
 @SP
 M=M+1
 
+// end infinite loop
+(ENDLOOP)
+@ENDLOOP
+0;JMP
+

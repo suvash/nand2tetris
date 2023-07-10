@@ -468,6 +468,16 @@ def translate_command(static_label, command, label_gen):
     return dedent(res)
 
 
+def translate_end_loop():
+    res = """\
+    // end infinite loop
+    (ENDLOOP)
+    @ENDLOOP
+    0;JMP
+    """
+    return dedent(res)
+
+
 @dataclass
 class LabelGenerator:
     prefix: str = "LABEL"
@@ -491,7 +501,12 @@ class StaticSymbolGenerator:
 def translate_commands(vm_fname, commands):
     label_gen = LabelGenerator()
     static_label = vm_fname
-    return [translate_command(static_label, cmd, label_gen) for cmd in commands]
+    translated_commands = [
+        translate_command(static_label, cmd, label_gen) for cmd in commands
+    ]
+    end_loop = translate_end_loop()
+    translations = [*translated_commands, end_loop]
+    return translations
 
 
 # Translation section END
