@@ -101,4 +101,7 @@ seven: ## Run the test suite for chapter 07
 	# StackTest
 	python projects/07/vmack/translator.py projects/07/StackArithmetic/StackTest/StackTest.vm projects/07/StackArithmetic/StackTest/StackTest.asm
 	./tools/CPUEmulator.sh projects/07/StackArithmetic/StackTest/StackTest.tst
+	# BasicTest
+	python projects/07/vmack/translator.py projects/07/MemoryAccess/BasicTest/BasicTest.vm projects/07/MemoryAccess/BasicTest/BasicTest.asm
+	./tools/CPUEmulator.sh  projects/07/MemoryAccess/BasicTest/BasicTest.tst
 

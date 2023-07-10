@@ -22,6 +22,7 @@ M=D
 @SP
 M=M+1
 
+// add | sub
 // SP--
 @SP
 M=M-1

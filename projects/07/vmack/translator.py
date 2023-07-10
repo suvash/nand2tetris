@@ -21,32 +21,32 @@ def clean_whitespace_and_comments(lines):
 from enum import Enum
 from dataclasses import dataclass
 
-class Segment(Enum):
-    local    = "local"
-    argument = "argument"
-    this     = "this"
-    that     = "that"
-    constant = "constant"
-    static   = "static"
-    temp     = "temp"
-    pointer  = "pointer"
+Segments = ["local", "argument", "this", "that", "constant", "static", "temp", "pointer"]
+Segment = Enum("Segment", Segments)
 
-def parse_segment(name):
-    return Segment.__members__[name]
+PushPops = ["pop", "push"]
+PushPop = Enum("PushPop", PushPops)
+
+def is_push_or_pop_cmd(line):
+    pop, push = PushPops
+    return line.startswith(pop) or line.startswith(push)
 
 @dataclass
-class PushCommand:
-    segment: Segment
+class PushPopCommand:
+    cmd: PushPop
+    seg: Segment
     val: int | None
 
-def PushCommandParser(line):
-    push_cmd = 'push'
-    if line.startswith(push_cmd):
-        cmd, seg, val = line.split(' ')
-        assert(cmd==push_cmd)
-        segment = parse_segment(seg)
-        val = int(val)
-        res = PushCommand(segment, val)
+def PushPopCommandParser(line):
+    if is_push_or_pop_cmd(line):
+        _cmd, _seg, _val = line.split(' ')
+        try:
+            cmd = getattr(PushPop, _cmd)
+            seg = getattr(Segment, _seg)
+            val = int(_val)
+            res = PushPopCommand(cmd, seg, val)
+        except (AttributeError, ValueError):
+            raise Exception(f"Could not parse push pop command: {line}")
     else:
         res = None
     return res
@@ -66,7 +66,7 @@ def OpCommandParser(line):
         res = None
     return res
 
-Parsers = [PushCommandParser, OpCommandParser]
+Parsers = [PushPopCommandParser, OpCommandParser]
 
 def parse_line(line):
     result = None
@@ -87,30 +87,126 @@ def parse_lines(lines):
 # Translation section BEGIN
 from textwrap import dedent
 
-def translate_push_command(segment, val):
+PopSegToInst = {
+    "local":    ("@LCL",  "D=D+M"),
+    "argument": ("@ARG",  "D=D+M"),
+    "this":     ("@THIS", "D=D+M"),
+    "that":     ("@THAT", "D=D+M"),
+    "temp":     ("@5",    "D=D+A"),
+ }
+
+def translate_pop_command(seg, val):
+    template = """\
+    // pop {seg} {val}
+    // val offset
+    @{val}
+    D=A
+    // segment base address + offset
+    {instr}
+    {instrarith}
+    // address in R13
+    @R13
+    M=D
+    // SP--
+    @SP
+    M=M-1
+    // load value in D
+    A=M
+    D=M
+    // value D in address pointed by temp
+    @R13
+    A=M
+    M=D
+    """
     res = None
-    match segment:
-        case Segment.constant:
-            template = """\
-            // push {segment} {val}
-            // D = {val}
-            @{val}
-            D=A
-            // RAM[SP] = D
-            @SP
-            A=M
-            M=D
-            // SP++
-            @SP
-            M=M+1
-            """
-            res = template.format(val=val, segment=segment.value)
+    match seg:
+        case Segment.local | Segment.argument | Segment.this | Segment.that | Segment.temp:
+            instr, instrarith = PopSegToInst[seg.name]
+            res = template.format(val=val, seg=seg.name, instr=instr, instrarith=instrarith)
         case _:
-            raise Exception(f"Unexpected segment : {segment}")
+            raise Exception(f"Unexpected segment : {seg}")
+    return res
+
+PushSegToInst = {
+    "local":    ("@LCL",  "A=D+M"),
+    "argument": ("@ARG",  "A=D+M"),
+    "this":     ("@THIS", "A=D+M"),
+    "that":     ("@THAT", "A=D+M"),
+    "temp":     ("@5",    "A=D+A"),
+ }
+
+def translate_push_segment_offset_command(seg, val):
+    template = """\
+    // push {seg} {val}
+    // D = {val}
+    @{val}
+    D=A
+    // segment base address + offset
+    {instr}
+    {instrarith}
+    // load value in D
+    D=M
+    // RAM[SP] = D
+    @SP
+    A=M
+    M=D
+    // SP++
+    @SP
+    M=M+1
+    """
+    res = None
+    match seg:
+        case Segment.local | Segment.argument | Segment.this | Segment.that | Segment.temp:
+            instr, instrarith = PushSegToInst[seg.name]
+            res = template.format(val=val, seg=seg.name, instr=instr, instrarith=instrarith)
+        case _:
+            raise Exception(f"Unexpected segment : {seg}")
+
+    return res
+
+def translate_push_constant_command(val):
+    template = """\
+    // push constant {val}
+    // D = {val}
+    @{val}
+    D=A
+    // RAM[SP] = D
+    @SP
+    A=M
+    M=D
+    // SP++
+    @SP
+    M=M+1
+    """
+    res = template.format(val=val)
+    return res
+
+
+def translate_push_command(seg, val):
+    res = None
+    match seg:
+        case Segment.local | Segment.argument | Segment.this | Segment.that | Segment.temp:
+            res = translate_push_segment_offset_command(seg, val)
+        case Segment.constant:
+            res = translate_push_constant_command(val)
+        case _:
+            raise Exception(f"Unexpected segment : {seg}")
+    return res
+
+def translate_push_pop_command(cmd, seg, val):
+    res = None
+    match cmd:
+        case PushPop.pop:
+            res = translate_pop_command(seg, val)
+        case PushPop.push:
+            res = translate_push_command(seg, val)
+        case _:
+            raise Exception(f"Unexpected push pop command : {cmd}, {seg}, {val}")
     return res
 
 def translate_neg_command():
     res = """\
+    // neg
     // SP--
     @SP
     M=M-1
@@ -126,6 +222,7 @@ def translate_neg_command():
 
 def translate_not_command():
     res = """\
+    // not
     // SP--
     @SP
     M=M-1
@@ -149,6 +246,7 @@ def translate_and_or_command(op):
             raise Exception(f"Unexpected and_or command : {op}")
 
     template = """\
+    // and | or
     // SP--
     @SP
     M=M-1
@@ -179,6 +277,7 @@ def translate_add_sub_command(op):
             raise Exception(f"Unexpected add_sub command : {op}")
 
     template = """\
+    // add | sub
     // SP--
     @SP
     M=M-1
@@ -211,6 +310,7 @@ def translate_eq_lt_gt_command(op, label_gen):
             raise Exception(f"Unexpected logical command : {op}")
 
     template = """\
+    // eq | lt | gt
     // SP--
     @SP
     M=M-1
@@ -274,8 +374,8 @@ def translate_op_command(op, label_gen):
 def translate_command(command, label_gen):
     res = None
     match command:
-        case PushCommand(segment, val):
-            res = translate_push_command(segment, val)
+        case PushPopCommand(cmd, seg, val):
+            res = translate_push_pop_command(cmd, seg, val)
         case OpCommand(op):
             res = translate_op_command(op, label_gen)
         case _:
