@@ -87,7 +87,38 @@ def OpCommandParser(line):
     return res
 
 
-Parsers = [PushPopCommandParser, OpCommandParser]
+Branches = ["label", "if_goto"]
+Branch = Enum("Branch", Branches)
+
+
+def is_branch_cmd(line):
+    label, _if_goto = Branches
+    if_goto = _if_goto.replace("_", "-")
+    return line.startswith(label) or line.startswith(if_goto)
+
+
+@dataclass
+class BranchCommand:
+    cmd: Branch
+    val: str
+
+
+def BranchCommandParser(line):
+    if is_branch_cmd(line):
+        _cmd, _val = line.split(" ")
+        _cmd = _cmd.replace("-", "_")
+        try:
+            cmd = getattr(Branch, _cmd)
+            val = _val
+            res = BranchCommand(cmd, val)
+        except AttributeError:
+            raise Exception(f"Could not parse branch command: {line}")
+    else:
+        res = None
+    return res
+
+
+Parsers = [PushPopCommandParser, BranchCommandParser, OpCommandParser]
 
 
 def parse_line(line):
@@ -456,6 +487,41 @@ def translate_op_command(op, label_gen):
     return res
 
 
+def translate_branch_label_command(val):
+    template = """\
+    // insert label
+    ({label})
+    """
+    res = template.format(label=val)
+    return res
+
+
+def translate_branch_if_goto_command(val):
+    template = """\
+    // if goto
+    @SP
+    M=M-1
+    A=M
+    D=M
+    @{label}
+    D;JNE
+    """
+    res = template.format(label=val)
+    return res
+
+
+def translate_branch_command(cmd, val):
+    res = None
+    match cmd:
+        case Branch.label:
+            res = translate_branch_label_command(val)
+        case Branch.if_goto:
+            res = translate_branch_if_goto_command(val)
+        case _:
+            raise Exception(f"Unexpected branch command : {cmd}, {val}")
+    return res
+
+
 def translate_command(static_label, command, label_gen):
     res = None
     match command:
@@ -463,6 +529,8 @@ def translate_command(static_label, command, label_gen):
             res = translate_push_pop_command(static_label, cmd, seg, val)
         case OpCommand(op):
             res = translate_op_command(op, label_gen)
+        case BranchCommand(cmd, val):
+            res = translate_branch_command(cmd, val)
         case _:
             raise Exception(f"Unexpected command : {command}")
     return dedent(res)
