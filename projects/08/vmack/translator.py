@@ -23,6 +23,7 @@ def clean_whitespace_and_comments(lines):
 
 from enum import Enum
 from dataclasses import dataclass
+from re import template
 
 
 Segments = [
@@ -118,7 +119,49 @@ def BranchCommandParser(line):
     return res
 
 
-Parsers = [PushPopCommandParser, BranchCommandParser, OpCommandParser]
+Functions = ["function", "returnn"]
+Function = Enum("Function", Functions)
+
+
+def is_function_cmd(line):
+    function, returnn = Functions
+    returnn = returnn.replace("nn", "n")
+    return line.startswith(function) or line.startswith(returnn)
+
+
+@dataclass
+class FunctionCommand:
+    cmd: Function
+    name: str | None
+    nvarsargs: int | None
+
+
+def FunctionCommandParser(line):
+    if is_function_cmd(line):
+        splits = line.split(" ")
+        if len(splits) == 1:
+            _cmd, name, nvarsargs = [*splits, None, None]
+            _cmd = f"{_cmd}n"
+            name, nvarsargs = None, None
+        else:
+            _cmd, name, _nvarsargs = splits
+            nvarsargs = int(_nvarsargs)
+        try:
+            cmd = getattr(Function, _cmd)
+            res = FunctionCommand(cmd, name, nvarsargs)
+        except AttributeError:
+            raise Exception(f"Could not parse function command: {line}")
+    else:
+        res = None
+    return res
+
+
+Parsers = [
+    PushPopCommandParser,
+    BranchCommandParser,
+    OpCommandParser,
+    FunctionCommandParser,
+]
 
 
 def parse_line(line):
@@ -534,6 +577,96 @@ def translate_branch_command(cmd, val):
     return res
 
 
+def translate_function_function_command(name, nvars):
+    template = """\
+    // function entry label
+    ({name})
+    // init {nvars} local vars\
+    """
+    head = template.format(name=name, nvars=nvars)
+    body = "\n".join([translate_push_constant_command(0) for _ in range(nvars)])
+    res = "\n".join([head, body])
+    return res
+
+
+def translate_function_return_command():
+    res = """\
+    // frame = @LCL
+    @LCL
+    D=M
+    @FRAME
+    M=D
+    // retAddr = *(frame-5)
+    @5
+    A=D-A
+    D=M
+    @RETADDR
+    M=D
+    // *ARG = pop()
+    @SP
+    M=M-1
+    A=M
+    D=M
+    @ARG
+    A=M
+    M=D
+    @ARG
+    D=M
+    // SP = ARG+1
+    @SP
+    M=D+1
+    // THAT = *(frame-1)
+    @FRAME
+    D=M
+    @1
+    A=D-A
+    D=M
+    @THAT
+    M=D
+    // THIS = *(frame-2)
+    @FRAME
+    D=M
+    @2
+    A=D-A
+    D=M
+    @THIS
+    M=D
+    // ARG = *(frame-3)
+    @FRAME
+    D=M
+    @3
+    A=D-A
+    D=M
+    @ARG
+    M=D
+    // LCL = *(frame-4)
+    @FRAME
+    D=M
+    @4
+    A=D-A
+    D=M
+    @LCL
+    M=D
+    // goto retAddr
+    @RETADDR
+    A=M
+    0;JMP
+    """
+    return res
+
+
+def translate_function_command(cmd, name, nvarsargs):
+    res = None
+    match cmd:
+        case Function.function:
+            res = translate_function_function_command(name, nvarsargs)
+        case Function.returnn:
+            res = translate_function_return_command()
+        case _:
+            raise Exception(f"Unexpected function command : {cmd}, {name}, {nvarsargs}")
+    return res
+
+
 def translate_command(static_label, command, label_gen):
     res = None
     match command:
@@ -543,6 +676,8 @@ def translate_command(static_label, command, label_gen):
             res = translate_op_command(op, label_gen)
         case BranchCommand(cmd, val):
             res = translate_branch_command(cmd, val)
+        case FunctionCommand(cmd, name, nargs):
+            res = translate_function_command(cmd, name, nargs)
         case _:
             raise Exception(f"Unexpected command : {command}")
     return dedent(res)
