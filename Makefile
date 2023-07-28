@@ -116,4 +116,7 @@ eight: ## Run the test suite for chapter 08
 	# BasicLoop
 	python projects/08/vmack/translator.py projects/08/ProgramFlow/BasicLoop/BasicLoop.vm projects/08/ProgramFlow/BasicLoop/BasicLoop.asm
 	./tools/CPUEmulator.sh projects/08/ProgramFlow/BasicLoop/BasicLoop.tst
+	# FibonacciSeries
+	python projects/08/vmack/translator.py projects/08/ProgramFlow/FibonacciSeries/FibonacciSeries.vm projects/08/ProgramFlow/FibonacciSeries/FibonacciSeries.asm
+	./tools/CPUEmulator.sh projects/08/ProgramFlow/FibonacciSeries/FibonacciSeries.tst
 

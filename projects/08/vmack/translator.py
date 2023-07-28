@@ -87,14 +87,14 @@ def OpCommandParser(line):
     return res
 
 
-Branches = ["label", "if_goto"]
+Branches = ["label", "if_goto", "goto"]
 Branch = Enum("Branch", Branches)
 
 
 def is_branch_cmd(line):
-    label, _if_goto = Branches
+    label, _if_goto, goto = Branches
     if_goto = _if_goto.replace("_", "-")
-    return line.startswith(label) or line.startswith(if_goto)
+    return line.startswith(label) or line.startswith(if_goto) or line.startswith(goto)
 
 
 @dataclass
@@ -496,6 +496,16 @@ def translate_branch_label_command(val):
     return res
 
 
+def translate_branch_goto_command(val):
+    template = """\
+    // goto
+    @{label}
+    0;JMP
+    """
+    res = template.format(label=val)
+    return res
+
+
 def translate_branch_if_goto_command(val):
     template = """\
     // if goto
@@ -515,6 +525,8 @@ def translate_branch_command(cmd, val):
     match cmd:
         case Branch.label:
             res = translate_branch_label_command(val)
+        case Branch.goto:
+            res = translate_branch_goto_command(val)
         case Branch.if_goto:
             res = translate_branch_if_goto_command(val)
         case _:
