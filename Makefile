@@ -1,11 +1,11 @@
 .DEFAULT_GOAL:=help
 
-.PHONY: test one two three four five six seven
+.PHONY: test one two three four five six seven eight
 
 help: ## Display this help
 	@awk 'BEGIN {FS = ":.*##"; printf "\nUsage:\n  make \033[36m<target>\033[0m\n\nTargets:\n"} /^[a-zA-Z_-]+:.*?##/ { printf "  \033[36m%-10s\033[0m %s\n", $$1, $$2 }' $(MAKEFILE_LIST)
 
-test: one two three four five six seven ## Run the whole test suite
+test: one two three four five six seven eight ## Run the whole test suite
 
 one: ## Run the test suite for chapter 01
 	$(info -- Running tests for all units in Chapter 01)
@@ -110,4 +110,10 @@ seven: ## Run the test suite for chapter 07
 	# StaticTest
 	python projects/07/vmack/translator.py projects/07/MemoryAccess/StaticTest/StaticTest.vm projects/07/MemoryAccess/StaticTest/StaticTest.asm
 	./tools/CPUEmulator.sh  projects/07/MemoryAccess/StaticTest/StaticTest.tst
+
+eight: ## Run the test suite for chapter 08
+	$(info -- Running tests for all units in Chapter 07)
+	# BasicLoop
+	python projects/08/vmack/translator.py projects/08/ProgramFlow/BasicLoop/BasicLoop.vm projects/08/ProgramFlow/BasicLoop/BasicLoop.asm
+	./tools/CPUEmulator.sh projects/08/ProgramFlow/BasicLoop/BasicLoop.tst
 
