@@ -755,6 +755,17 @@ def translate_command(static_label, command, label_gen):
     return dedent(res)
 
 
+def translate_init_sp():
+    res = """\
+    // initialize stack pointer
+    @256
+    D=A
+    @SP
+    M=D
+    """
+    return dedent(res)
+
+
 def translate_end_loop():
     res = """\
     // end infinite loop
@@ -777,8 +788,7 @@ class LabelGenerator:
         return tag, dest
 
 
-def translate_commands(vm_fname, commands):
-    label_gen = LabelGenerator()
+def translate_commands(vm_fname, commands, label_gen):
     static_label = vm_fname
     translations = [translate_command(static_label, cmd, label_gen) for cmd in commands]
     return translations
@@ -801,6 +811,9 @@ cli.add_argument(
 cli.add_argument(
     "-d", "--debug", action="store_true", help="print all the intermediate steps"
 )
+cli.add_argument(
+    "-b", "--bootstrap", action="store_true", help="inject the bootstrap sequence"
+)
 args = cli.parse_args()
 DEBUG = args.debug
 
@@ -811,6 +824,7 @@ else:
 
 asm_file = args.asm
 
+label_gen = LabelGenerator()
 translated = []
 for vm_file in vm_files:
     print(f"Translating vm file : {vm_file}")
@@ -818,7 +832,7 @@ for vm_file in vm_files:
     vm_clean = clean_whitespace_and_comments(vm_contents)
     commands = parse_lines(vm_clean)
     vm_fname = vm_file.stem
-    translated.append(translate_commands(vm_fname, commands))
+    translated.append(translate_commands(vm_fname, commands, label_gen))
 
     if DEBUG:
         print("========================================")
@@ -841,12 +855,20 @@ for vm_file in vm_files:
             print(t)
         print("========================================")
 
-
+sp_init = translate_init_sp()
+bootstrap_fname, bootstrap_contents = ("Bootstrap.vm", ["call Sys.init 0"])
+bootstrap_init = translate_commands(
+    bootstrap_fname, parse_lines(bootstrap_contents), label_gen
+)
 assembled = [line for t_file in translated for line in t_file]
 end_loop = translate_end_loop()
-assembled_end_loop = [*assembled, end_loop]
+
+if args.bootstrap:
+    assembled_init_end = [sp_init, *bootstrap_init, *assembled, end_loop]
+else:
+    assembled_init_end = [*assembled, end_loop]
 with open(asm_file, "w") as f:
-    assembly = "\n".join(assembled_end_loop) + "\n"
+    assembly = "\n".join(assembled_init_end) + "\n"
     f.write(assembly)
 
 

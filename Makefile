@@ -125,4 +125,6 @@ eight: ## Run the test suite for chapter 08
 	# NestedCall
 	python projects/08/vmack/translator.py projects/08/FunctionCalls/NestedCall projects/08/FunctionCalls/NestedCall/NestedCall.asm
 	./tools/CPUEmulator.sh projects/08/FunctionCalls/NestedCall/NestedCall.tst
-
+	# FibonacciElement
+	python projects/08/vmack/translator.py --bootstrap projects/08/FunctionCalls/FibonacciElement projects/08/FunctionCalls/FibonacciElement/FibonacciElement.asm
+	./tools/CPUEmulator.sh projects/08/FunctionCalls/FibonacciElement/FibonacciElement.tst
