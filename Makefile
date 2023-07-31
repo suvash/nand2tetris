@@ -122,4 +122,7 @@ eight: ## Run the test suite for chapter 08
 	# SimpleFunction
 	python projects/08/vmack/translator.py projects/08/FunctionCalls/SimpleFunction/SimpleFunction.vm projects/08/FunctionCalls/SimpleFunction/SimpleFunction.asm
 	./tools/CPUEmulator.sh projects/08/FunctionCalls/SimpleFunction/SimpleFunction.tst
+	# NestedCall
+	python projects/08/vmack/translator.py projects/08/FunctionCalls/NestedCall projects/08/FunctionCalls/NestedCall/NestedCall.asm
+	./tools/CPUEmulator.sh projects/08/FunctionCalls/NestedCall/NestedCall.tst
 

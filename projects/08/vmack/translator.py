@@ -119,14 +119,16 @@ def BranchCommandParser(line):
     return res
 
 
-Functions = ["function", "returnn"]
+Functions = ["function", "call", "returnn"]
 Function = Enum("Function", Functions)
 
 
 def is_function_cmd(line):
-    function, returnn = Functions
+    function, call, returnn = Functions
     returnn = returnn.replace("nn", "n")
-    return line.startswith(function) or line.startswith(returnn)
+    return (
+        line.startswith(function) or line.startswith(call) or line.startswith(returnn)
+    )
 
 
 @dataclass
@@ -589,6 +591,74 @@ def translate_function_function_command(name, nvars):
     return res
 
 
+def translate_function_call_command(name, nargs, label_gen):
+    template = """\
+    // push retAddr
+    {retAddr_tag}
+    D=A
+    @SP
+    A=M
+    M=D
+    @SP
+    M=M+1
+    // push LCL
+    @LCL
+    D=M
+    @SP
+    A=M
+    M=D
+    @SP
+    M=M+1
+    // push ARG
+    @ARG
+    D=M
+    @SP
+    A=M
+    M=D
+    @SP
+    M=M+1
+    // push THIS
+    @THIS
+    D=M
+    @SP
+    A=M
+    M=D
+    @SP
+    M=M+1
+    // push THAT
+    @THAT
+    D=M
+    @SP
+    A=M
+    M=D
+    @SP
+    M=M+1
+    // ARG = SP-5-nargs | reposition ARG
+    @SP
+    D=M
+    @5
+    D=D-A
+    @{nargs}
+    D=D-A
+    @ARG
+    M=D
+    // LCL = SP | reposition LCL
+    @SP
+    D=M
+    @LCL
+    M=D
+    @{name}
+    0;JMP
+    // inject retAddr
+    {retAddr_dest}
+    """
+    retAddr_tag, retAddr_dest = label_gen.next()
+    res = template.format(
+        name=name, nargs=nargs, retAddr_tag=retAddr_tag, retAddr_dest=retAddr_dest
+    )
+    return res
+
+
 def translate_function_return_command():
     res = """\
     // frame = @LCL
@@ -655,9 +725,11 @@ def translate_function_return_command():
     return res
 
 
-def translate_function_command(cmd, name, nvarsargs):
+def translate_function_command(cmd, name, nvarsargs, label_gen):
     res = None
     match cmd:
+        case Function.call:
+            res = translate_function_call_command(name, nvarsargs, label_gen)
         case Function.function:
             res = translate_function_function_command(name, nvarsargs)
         case Function.returnn:
@@ -677,7 +749,7 @@ def translate_command(static_label, command, label_gen):
         case BranchCommand(cmd, val):
             res = translate_branch_command(cmd, val)
         case FunctionCommand(cmd, name, nargs):
-            res = translate_function_command(cmd, name, nargs)
+            res = translate_function_command(cmd, name, nargs, label_gen)
         case _:
             raise Exception(f"Unexpected command : {command}")
     return dedent(res)
@@ -708,11 +780,7 @@ class LabelGenerator:
 def translate_commands(vm_fname, commands):
     label_gen = LabelGenerator()
     static_label = vm_fname
-    translated_commands = [
-        translate_command(static_label, cmd, label_gen) for cmd in commands
-    ]
-    end_loop = translate_end_loop()
-    translations = [*translated_commands, end_loop]
+    translations = [translate_command(static_label, cmd, label_gen) for cmd in commands]
     return translations
 
 
@@ -724,7 +792,9 @@ import argparse
 import pathlib
 
 cli = argparse.ArgumentParser()
-cli.add_argument("vm", help="input vm file", type=lambda p: pathlib.Path(p).absolute())
+cli.add_argument(
+    "vm", help="input vm file or directory", type=lambda p: pathlib.Path(p).absolute()
+)
 cli.add_argument(
     "asm", help="output asm file", type=lambda p: pathlib.Path(p).absolute()
 )
@@ -733,42 +803,50 @@ cli.add_argument(
 )
 args = cli.parse_args()
 DEBUG = args.debug
-vm_file = args.vm
+
+if args.vm.is_dir():
+    vm_files = list(args.vm.glob("*.vm"))
+else:
+    vm_files = [args.vm]
+
 asm_file = args.asm
 
-print(f"Translating vm file : {vm_file}")
+translated = []
+for vm_file in vm_files:
+    print(f"Translating vm file : {vm_file}")
+    vm_contents = read_vm_file(vm_file)
+    vm_clean = clean_whitespace_and_comments(vm_contents)
+    commands = parse_lines(vm_clean)
+    vm_fname = vm_file.stem
+    translated.append(translate_commands(vm_fname, commands))
 
-vm_contents = read_vm_file(vm_file)
-vm_clean = clean_whitespace_and_comments(vm_contents)
-commands = parse_lines(vm_clean)
-vm_fname = vm_file.stem
-translated = translate_commands(vm_fname, commands)
+    if DEBUG:
+        print("========================================")
+        print("Raw contents:")
+        print("----------------------------------------")
+        print(vm_contents)
+        print("========================================")
+        print("After whitespace & comments removal:")
+        print("----------------------------------------")
+        print(vm_clean)
+        print("========================================")
+        print("Parsed vm program:")
+        print("----------------------------------------")
+        for c in commands:
+            print(c)
+        print("========================================")
+        print("Translated program:")
+        print("----------------------------------------")
+        for t in translated:
+            print(t)
+        print("========================================")
 
 
-if DEBUG:
-    print("========================================")
-    print("Raw contents:")
-    print("----------------------------------------")
-    print(vm_contents)
-    print("========================================")
-    print("After whitespace & comments removal:")
-    print("----------------------------------------")
-    print(vm_clean)
-    print("========================================")
-    print("Parsed vm program:")
-    print("----------------------------------------")
-    for c in commands:
-        print(c)
-    print("========================================")
-    print("Translated program:")
-    print("----------------------------------------")
-    for t in translated:
-        print(t)
-    print("========================================")
-
-
+assembled = [line for t_file in translated for line in t_file]
+end_loop = translate_end_loop()
+assembled_end_loop = [*assembled, end_loop]
 with open(asm_file, "w") as f:
-    assembly = "\n".join(translated) + "\n"
+    assembly = "\n".join(assembled_end_loop) + "\n"
     f.write(assembly)
 
 
