@@ -112,7 +112,7 @@ seven: ## Run the test suite for chapter 07
 	./tools/CPUEmulator.sh  projects/07/MemoryAccess/StaticTest/StaticTest.tst
 
 eight: ## Run the test suite for chapter 08
-	$(info -- Running tests for all units in Chapter 07)
+	$(info -- Running tests for all units in Chapter 08)
 	# BasicLoop
 	python projects/08/vmack/translator.py projects/08/ProgramFlow/BasicLoop/BasicLoop.vm projects/08/ProgramFlow/BasicLoop/BasicLoop.asm
 	./tools/CPUEmulator.sh projects/08/ProgramFlow/BasicLoop/BasicLoop.tst
@@ -128,3 +128,6 @@ eight: ## Run the test suite for chapter 08
 	# FibonacciElement
 	python projects/08/vmack/translator.py --bootstrap projects/08/FunctionCalls/FibonacciElement projects/08/FunctionCalls/FibonacciElement/FibonacciElement.asm
 	./tools/CPUEmulator.sh projects/08/FunctionCalls/FibonacciElement/FibonacciElement.tst
+	# StaticsTest
+	python projects/08/vmack/translator.py --bootstrap projects/08/FunctionCalls/StaticsTest projects/08/FunctionCalls/StaticsTest/StaticsTest.asm
+	./tools/CPUEmulator.sh projects/08/FunctionCalls/StaticsTest/StaticsTest.tst
